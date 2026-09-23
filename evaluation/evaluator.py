@@ -4,10 +4,16 @@ from groq import Groq
 
 
 class Evaluation:
-    def __init__(self):
-        pass
+    def __init__(self, key_path: str = "../keys.txt", model_name: str = "openai/gpt-oss-20b"):
+        
+        with open("../keys.txt", "r") as f:
+            api_key = f.read().strip()
+        
+        self.api_key = api_key
+        self.groq_client = Groq(api_key=api_key)
+        self.model_name = model_name
 
-    def judge_accuracy(self, groq_client: Groq, query: str, golden_answer:str, candidate_answer: str) -> dict:
+    def judge_accuracy(self, query: str, golden_answer:str, candidate_answer: str) -> dict:
         """
         LLm compares cand answer to gold stand (1-5 score)
         """
@@ -31,8 +37,8 @@ class Evaluation:
         REASON: <one sentence explanation>"""
 
         try:
-            response = groq_client.chat.completions.create(
-                model="openai/gpt-oss-20b",
+            response = self.groq_client.chat.completions.create(
+                model= self.model_name,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.0,
             )
@@ -55,11 +61,6 @@ class Evaluation:
 
         from main import run_query
         
-        with open("../keys.txt", "r") as f:
-            api_key = f.read().strip()
-        
-        groq_client = Groq(api_key=api_key)
-
         with open(dataset_path, "r") as f:
             test_cases = json.load(f)
         
@@ -69,18 +70,24 @@ class Evaluation:
             golden_answer = case.get("golden_answer")
             category = case.get("category", "direct_lookup")
             
-            pipeline_output = run_query(query, key=api_key)
+            pipeline_output = run_query(query, key=self.api_key)
 
             ###checking the guardrail:
 
             if isinstance(pipeline_output, dict) and pipeline_output.get("intercepted"):
-                candidate_answer = pipeline_output.get("answer", "")
+                fallback_msg = (
+                    "I could not find sufficiently relevant information in the documents to"
+                    " answer your request appropriately."
+                )
+                
+                #extract the "message" from the nested "answer" dict:
+                answer = pipeline_output.get("answer", {})
+                candidate_answer = answer.get("message", fallback_msg)
+                
 
                 if category == "out_of_domain":
                     score = 5
-                    reason = (
-                        "Corrrectly intercepted out_of_domain query via Guardrail."
-                    )
+                    reason = "Corrrectly intercepted out_of_domain query via Guardrail."
                 else:
                     score = 1
                     reason = "Guardrail incorrectly blocked a valid query"
@@ -92,10 +99,10 @@ class Evaluation:
 
             #####
 
-            eval_res = self.judge_accuracy(groq_client=groq_client, query=query, golden_answer=golden_answer, candidate_answer=candidate_answer)
+                eval_res = self.judge_accuracy(query=query, golden_answer=golden_answer, candidate_answer=candidate_answer)
 
-            score = eval_res["score"]
-            reason = eval_res["reason"]
+                score = eval_res["score"]
+                reason = eval_res["reason"]
 
             results.append({
                 "query": query,

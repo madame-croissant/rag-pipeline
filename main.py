@@ -57,7 +57,7 @@ def run_query(query:str, key: str):
         #exit() -- before for only query
         return {
             "answer": guard_result["fallback_response"],
-            "intercepted": True,
+            "intercepted": True, #when too low
             "confidence_results": None,
             "verification_report": None
         }
