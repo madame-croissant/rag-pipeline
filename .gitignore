@@ -6,8 +6,12 @@ rag/*
 data/
 bm25_index.pkl
 chroma_db/
+eval_dataset.json
 
 # Python cache
 __pycache__/
 *.pyc
 .DS_Store
+
+#old code:
+preprocessing/_preprocessing_old.py

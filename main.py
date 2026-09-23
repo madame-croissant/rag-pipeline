@@ -1,5 +1,5 @@
 import argparse
-import sys
+import json
 
 from preprocessing.preprocessing_handler import PreprocessingPipe
 from retrieval.retrieval import HybridRetrieval
@@ -7,10 +7,12 @@ from generation.generator import Generator
 from generation.verifier import CitationVerifier
 from evaluation.scorer import ConfidenceScore
 from evaluation.guardrail import RetrievalGuardrail
+from evaluation.evaluator import Evaluation
 
 """
 python3 main.py preprocess semantic
 python3 main.py query --prompt "How are translations handled in FastAPI?"
+python3 main.py eval
 """
 
 
@@ -52,7 +54,13 @@ def run_query(query:str, key: str):
     if not guard_result["passed"]:
         print("LOW RETRIEVAL SCORE - STOPPING BEFORE GENERATION")
         print(guard_result["fallback_response"])
-        exit()
+        #exit() -- before for only query
+        return {
+            "answer": guard_result["fallback_response"],
+            "intercepted": True,
+            "confidence_results": None,
+            "verification_report": None
+        }
     
     ###### GENERATING  #######
 
@@ -99,6 +107,12 @@ def run_query(query:str, key: str):
     print(f"Citation Coverage:    {confidence_results['breakdown']['citation_coverage'] * 100:.1f}%")
     print(f"Answer Completeness:  {confidence_results['breakdown']['answer_completeness'] * 100:.1f}%")
 
+    return {
+    "answer": answer,
+    "confidence_results": confidence_results,
+    "verification_report": verification_report
+    }
+
 
 
 def build_parser():
@@ -130,6 +144,12 @@ def build_parser():
     query_parser = mode_subparsers.add_parser("query", help="Ask a question")
     query_parser.add_argument("--prompt", type=str, required=True, help="Question to ask")
 
+    #Evaluation: 
+    eval_parser = mode_subparsers.add_parser(
+        "eval", help="Run benchmark evaluation across a dataset for eval with questions"
+    )
+    eval_parser.add_argument("--dataset", type=str, default="eval_dataset.json", help="Path to evaluation dataset")
+
     return parser
 
 def main():
@@ -148,6 +168,18 @@ def main():
             key = f.read().strip()
         
         run_query(query=args.prompt, key=key)
+    
+    elif args.mode == "eval":
+        evaluator = Evaluation()
+        scores = evaluator.execute_evaluation(dataset_path=args.dataset)
+
+        print("Evaluation Benchmark Results")
+        print(json.dumps(scores, indent=2))
+
+        if scores:
+            avg_score = sum(item["score"] for item in scores) / len(scores)
+            print(f"Average Score: {avg_score:.2f} / 5.0")
+
 
     
 
