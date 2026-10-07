@@ -1,22 +1,51 @@
-from preprocessing.loader import DataLoader
-from tqdm import tqdm
+"""
+Document chunking strategies module.
+
+Applies various text segmentation algorithms: fixed-size window, recursive hierarchical 
+splitting, or semantic embedding distance—to structured sections.
+"""
+
+
 import re
-from sentence_transformers import SentenceTransformer
+from tqdm import tqdm
 from sklearn.metrics.pairwise import cosine_similarity
+from sentence_transformers import SentenceTransformer
+
+from preprocessing.loader import DataLoader
 
 
 class ChunkStrategies:
-    def __init__(self):
+    """
+    Manages document chunking using fixed, recursive, and semantic splitting algorithms.
+
+    Attributes:
+        loader (DataLoader): DataLoader instance containing structured sections.
+        encoder (SentenceTransformer): Embedding model used to compute sentence-level 
+            similarity for semantic splitting.
+    """
+    def __init__(self) -> None:
+        """
+        Initializes the DataLoader and loads the sentence embedding model.
+        """
         self.loader = DataLoader()
         self.loader.build_corpus('data/raw')
 
         #model for semantic split
-        print("Loading SentenceTransformer model")
         self.encoder = SentenceTransformer("all-MiniLM-L6-v2")
 
 
-    def chunk_handler(self, strategy_func, strategy_name, **kwargs):
+    def chunk_handler(self, strategy_func: str, strategy_name: str, **kwargs) -> list[dict]:
+        """
+        Applies a selected chunking strategy across all loaded document sections.
 
+        Args:
+            strategy_func: The chunking function to execute (e.g., `fixed_size`, `recursive_split`, or `semantic_split`).
+            strategy_name (str): Identifier label for the chunking method used.
+            **kwargs: Strategy-specific parameters (e.g., size, overlap, threshold).
+
+        Returns:
+            list[dict[str, str]]: List of final chunk records containing text and metadata.
+        """
         final_chunked_text = []
 
         print("Total entries to chunk:", len(self.loader.dict_list))
@@ -35,16 +64,23 @@ class ChunkStrategies:
                 }
 
                 final_chunked_text.append(new_chunk)
-                #print(final_chunked_text)
         
         print("Total chunks after splitting:", len(final_chunked_text))
 
-        
-        #print(final_chunked_text)
         return final_chunked_text
 
-    def fixed_size(self, text, size, overlap):
+    def fixed_size(self, text: str, size: int, overlap: int) -> list[str]:
+        """
+        Splits text into fixed-length character windows with overlapping characters.
 
+        Args:
+            text (str): Input text string.
+            size (int): Target chunk size in characters.
+            overlap (int): Number of overlapping characters between consecutive chunks.
+
+        Returns:
+            list[str]: Extracted text chunks.
+        """
         chunks = []
         start = 0
 
@@ -58,7 +94,21 @@ class ChunkStrategies:
 
         return chunks
     
-    def recursive_split(self, text, size, separators: list):
+    def recursive_split(self, text: str, size: int, separators: list) -> list[str]:
+        """
+        Recursively splits text using a hierarchy of separators until blocks reach `size`.
+
+        Tries splitting on high-level separators first, falling back to smaller separators 
+        only when chunks exceed the target size.
+
+        Args:
+            text (str): Input text string.
+            size (int): Maximum target chunk size in characters.
+            separators (list[str]): Ordered list of string delimiters to split on.
+
+        Returns:
+            list[str]: List of recursively bounded text chunks.
+        """
 
         if len(text) <= size:
             return [text] #should be a list
@@ -101,7 +151,22 @@ class ChunkStrategies:
       
         return chunks
     
-    def semantic_split(self, text, threshold, min_chunk_size):
+    def semantic_split(self, text: str, threshold: float, min_chunk_size: int) -> list[str]:
+        """
+        Splits text into semantic chunks based on cosine similarity of consecutive sentences.
+
+        Embeds sentences using `SentenceTransformer` and calculates cosine similarity between 
+        adjacent sentences. Creates a chunk boundary when similarity drops below `threshold` 
+        and the accumulated text meets `min_chunk_size`.
+
+        Args:
+            text (str): Input text string.
+            threshold (float): Minimum cosine similarity score required to keep sentences grouped.
+            min_chunk_size (int): Minimum character length required before allowing a split.
+
+        Returns:
+            list[str]: Semantically coherent text chunks.
+        """
         
         sentences = self.split_into_sentences(text)
 
@@ -143,9 +208,15 @@ class ChunkStrategies:
         
         return chunks
 
-    def split_into_sentences(self, text):
+    def split_into_sentences(self, text: str) -> list[str]:
         """
-        helper for semantic split
+        Splits raw text into individual sentences using punctuation delimiters.
+
+        Args:
+            text (str): Input text string.
+
+        Returns:
+            list[str]: List of cleaned sentence strings.
         """
 
         raw_sent = re.split(r'(?<=[.!?])\s+', text)
@@ -158,19 +229,19 @@ class ChunkStrategies:
 
 
 
-if __name__ == "__main__":
-    chunks = ChunkStrategies()
+#if __name__ == "__main__":
+#    chunks = ChunkStrategies()
     #chunks.chunk_handler(chunks.fixed_size, "fixed", size=500, overlap=50)
     #chunks.chunk_handler(chunks.recursive_split, "recursive", size=500, separators=["\n\n", "\n", ".", " "])
 
-    semantic_chunks = chunks.chunk_handler( chunks.semantic_split, "semantic", threshold=0.35, min_chunk_size=300)
+#    semantic_chunks = chunks.chunk_handler( chunks.semantic_split, "semantic", threshold=0.35, min_chunk_size=300)
 
     # Calculate character length of each chunk
-    lengths = [len(c["text"]) for c in semantic_chunks]
+#    lengths = [len(c["text"]) for c in semantic_chunks]
 
-    avg_len = sum(lengths) / len(lengths)
-    print(f"Average Chunk Length: {avg_len:.1f} characters (~{avg_len / 5:.1f} words)")
-    print("Shortest 3 chunks:", sorted(lengths)[:3])
-    print("Sample chunk:\n", semantic_chunks[10]["text"])
+#    avg_len = sum(lengths) / len(lengths)
+#    print(f"Average Chunk Length: {avg_len:.1f} characters (~{avg_len / 5:.1f} words)")
+#    print("Shortest 3 chunks:", sorted(lengths)[:3])
+#    print("Sample chunk:\n", semantic_chunks[10]["text"])
             
 
