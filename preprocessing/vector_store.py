@@ -1,8 +1,31 @@
+"""
+ChromaDB vector store integration module.
+
+Handles persistent vector storage, embedding generation, deduplication,
+and dense cosine similarity retrieval.
+"""
+
 import chromadb
 from chromadb.utils import embedding_functions 
 
 class VectoreStore:
-    def __init__(self, db_path="./chroma_db", collection_name="rag_chunks"):
+    """
+    Manages vector embeddings and retrieval using a ChromaDB instance.
+
+    Attributes:
+        client: ChromaDB client connected to disk.
+        embedding_fn: SentenceTransformer embedding function.
+        collection: Target ChromaDB collection configured for cosine distance.
+    """
+    
+    def __init__(self, db_path: str = "./chroma_db", collection_name: str = "rag_chunks") -> None:
+        """
+        Initializes the database connection and collection setup.
+
+        Args:
+            db_path (str): File system directory path for ChromaDB persistence.
+            collection_name (str): Name of the ChromaDB collection to load or create.
+        """
         self.client = chromadb.PersistentClient(path=db_path)
         
         self.embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
@@ -14,19 +37,27 @@ class VectoreStore:
         )
     
 
-    def add_chunks(self, chunks: list[dict]):
+    def add_chunks(self, chunks: list[dict]) -> list[dict]:
+        """
+        Embeds document chunks with duplicate suppression.
+
+        Checks proposed text against stored documents and skips chunks whose cosine
+        distance falls below 0.05 (~95% similarity).
+
+        Args:
+            chunks (list[dict]): List of chunk dictionaries containing text and source metadata.
+
+        Returns:
+            list[dict]: List of non-duplicate chunks that were saved to the store.
+        """
 
         dist_threshold = 0.05 #(similarity 0.95, so 1-0.95
 
         unique_chunks =[]
         skipped_count = 0
-        #documents = []
-        #metadata = []
-        #ids = []
+   
 
         for idx, chunk in enumerate(chunks):
-            #documents.append(chunk["text"])
-
             text= chunk["text"]
 
             if self.collection.count() > 0:
@@ -34,8 +65,6 @@ class VectoreStore:
                     query_texts=[text],
                     n_results=1
                 )
-
-                #print("This is query res", query_res)
 
                 #checking the distance
                 if query_res["distances"] and query_res["distances"][0]:
@@ -59,10 +88,7 @@ class VectoreStore:
                 "character_count": len(text)
             }
 
-            #ids.append(f"chunk_{idx}")
-            
-            
-            
+
             self.collection.add(
                 documents=[text],
                 metadatas=[chunk_metadata],
@@ -78,10 +104,21 @@ class VectoreStore:
         
         return unique_chunks
     
-        #batching
        
 
-    def search_dense(self, query: str, k: int) -> list:
+    def search_dense(self, query: str, k: int) -> list[dict]:
+        """
+        Queries the vector database for top-k semantically similar text chunks.
+
+        Converts ChromaDB cosine distance into similarity scores (1.0 - distance).
+
+        Args:
+            query (str): User prompt or question.
+            k (int): Number of top results to return.
+
+        Returns:
+            list[dict]: Retrieved documents with text, metadata, similarity score, and source type.
+        """
 
         results = self.collection.query(
             query_texts=[query],
