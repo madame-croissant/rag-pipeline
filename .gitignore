@@ -13,5 +13,3 @@ __pycache__/
 *.pyc
 .DS_Store
 
-#old code:
-preprocessing/_preprocessing_old.py
