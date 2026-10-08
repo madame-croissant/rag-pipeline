@@ -150,36 +150,3 @@ class HybridRetrieval:
 
         return reranked_results
 
-
-        
-
-    
-
-#Testing
-#if __name__ == "__main__":
-#    retriever = HybridRetrieval()
-
-#    query_txt = "How are translations handled in FastAPI?"
-
-#    print("1.Retrieval")
-
-#    reranked_results = retriever.hybrid_search(query=query_txt)
-
-#    for idx, hit in enumerate(reranked_results, 1):
-#            print(f"\n {idx}, score {hit["score"]}, heading {hit["metadata"].get("heading")}")
-#            print(f"Text: {hit["text"]}")
-
-    #dense_results = retriever.get_dense(query_txt, k=5)
-
-
-    #print(f"Retrieved {len(dense_results)} chunks")
-    #for idx, hit in enumerate(dense_results, 1):
-    #    print(f"\n {idx}, score {hit["score"]}, heading {hit["metadata"].get("heading")}")
-    #   print(f"Text: {hit["text"]}")
-    
-    #print("2. Sparse Retrieval")
-
-    #sparse_results = retriever.get_sparse(query_txt, k=5)
-    #for idx, hit in enumerate(sparse_results, 1):
-    #    print(f"\n {idx}, score {hit["score"]}, heading {hit["metadata"].get("heading")}")
-    #    print(f"Text: {hit["text"]}")

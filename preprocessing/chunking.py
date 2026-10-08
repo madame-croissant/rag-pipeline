@@ -227,21 +227,3 @@ class ChunkStrategies:
 
             
 
-
-
-#if __name__ == "__main__":
-#    chunks = ChunkStrategies()
-    #chunks.chunk_handler(chunks.fixed_size, "fixed", size=500, overlap=50)
-    #chunks.chunk_handler(chunks.recursive_split, "recursive", size=500, separators=["\n\n", "\n", ".", " "])
-
-#    semantic_chunks = chunks.chunk_handler( chunks.semantic_split, "semantic", threshold=0.35, min_chunk_size=300)
-
-    # Calculate character length of each chunk
-#    lengths = [len(c["text"]) for c in semantic_chunks]
-
-#    avg_len = sum(lengths) / len(lengths)
-#    print(f"Average Chunk Length: {avg_len:.1f} characters (~{avg_len / 5:.1f} words)")
-#    print("Shortest 3 chunks:", sorted(lengths)[:3])
-#    print("Sample chunk:\n", semantic_chunks[10]["text"])
-            
-

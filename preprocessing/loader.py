@@ -151,19 +151,3 @@ class DataLoader:
                     return lines[i+1:] #after closing 
         return lines
         
-
-#if __name__ == "__main__":
-
-#    file = "data/raw/management.md"
-#    root_folder = 'data/raw'
-#    loader = DataLoader()
-    #loader.processor(file)
-    
-#    loader.build_corpus(root_folder)
-#    print("Total chunks:", len(loader.dict_list))
-
-    #print(loader.dict_list[0])
-    #print(loader.dict_list[-1])
-    #print(loader.dict_list)
-
-
