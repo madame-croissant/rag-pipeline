@@ -1,28 +1,82 @@
-from preprocessing.vector_store import VectoreStore
-from preprocessing.bm25 import BM25Indexer
+"""
+Hybrid retrieval and re-ranking module.
+
+Combines dense vector search (ChromaDB) and sparse keyword search (BM25) using 
+Reciprocal Rank Fusion (RRF), followed by Cross-Encoder re-ranking.
+"""
 
 from sentence_transformers import CrossEncoder
 
+from preprocessing.bm25 import BM25Indexer
+from preprocessing.vector_store import VectoreStore
+
+
+
 
 class HybridRetrieval:
-    def __init__(self, db_path="./chroma_db", bm25_path="./bm25_index.pkl"):
+    """
+    Orchestrates hybrid search using dense vector, sparse keyword, RRF fusion, and cross-encoder re-ranking.
+
+    Attributes:
+        vectore_store (VectoreStore): Persistent ChromaDB dense search engine.
+        bm25 (BM25Indexer): Sparse BM25 keyword search engine.
+        reranker (CrossEncoder): Hugging Face Cross-Encoder model used to re-rank candidate chunks.
+    """
+
+    def __init__(self, db_path: str = "./chroma_db", bm25_path: str = "./bm25_index.pkl") -> None:
+        """
+        Loads dense and sparse indices along with the re-ranking model.
+
+        Args:
+            db_path (str): File system path to ChromaDB database.
+            bm25_path (str): Directory or file path containing saved BM25 index.
+        """
         
         self.vectore_store = VectoreStore(db_path=db_path)
-
         self.bm25 = BM25Indexer()
         self.bm25.load_index(save_dir=bm25_path)
 
         #cross-encoder for reranking
         self.reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
 
-    def get_dense(self, query, k=10):
+    def get_dense(self, query: str, k: int = 10) -> list[dict]:
+        """
+        Queries the dense vector store for semantic matches.
+
+        Args:
+            query (str): The search query.
+            k (int): Number of top results to retrieve.
+
+        Returns:
+            list[dict]: List of dense retrieval candidate dicts.
+        """
         return self.vectore_store.search_dense(query=query, k=k) 
     
-    def get_sparse(self, query, k=10):
+    def get_sparse(self, query: str, k: int = 10) -> list[dict]:
+        """
+        Queries the BM25 index for keyword matches.
+
+        Args:
+            query (str): The search query.
+            k (int): Number of top results to retrieve.
+
+        Returns:
+            list[dict]: List of sparse retrieval candidate dicts.
+        """
         return self.bm25.search_sparse(query=query, k=k)
 
     def rerank(self, query: str, candidates: list[dict], top_k=5) -> list[dict]:
+        """
+        Re-ranks candidate document chunks using the Cross-Encoder model.
 
+        Args:
+            query (str): The target user query.
+            candidates (list[dict]): Combined candidate chunks from RRF fusion.
+            top_k (int): Number of top candidates to return after re-ranking.
+
+        Returns:
+            list[dict]: Top candidate chunks sorted by descending cross-encoder score.
+        """
         pairs = []
 
         for entry in candidates: #{"text": "FastAPI uses Pydantic for data validation...", "score": 0.016}
@@ -30,7 +84,7 @@ class HybridRetrieval:
 
         rerank_scores = self.reranker.predict(pairs)
 
-        #adding rerank scores
+        #Adding rerank scores
         for entry, score in zip(candidates, rerank_scores):
             entry["rerank_score"] = float(score)
 
@@ -40,9 +94,22 @@ class HybridRetrieval:
 
 
 
-    def hybrid_search(self, query, top_k=10, rrf_k=60, alpha=0.5):
+    def hybrid_search(self, query: str, top_k: int = 10, rrf_k: int = 60, alpha: float = 0.5) -> list[dict]:
         """
-        rrf_score = 1 / (60 + ranking_index)
+        Executes full hybrid search: dense + sparse retrieval, RRF fusion, and Cross-Encoder re-ranking.
+
+        Applies weighted Reciprocal Rank Fusion:
+            score = weight * (1 / (rrf_k + idx))
+
+        Args:
+            query (str): Search prompt or question.
+            top_k (int): Number of candidates to retrieve per branch and return after re-ranking.
+            rrf_k (int): Reciprocal Rank Fusion smoothing parameter (default 60).
+            alpha (float): Weight factor balancing dense (alpha) vs sparse (1 - alpha) results.
+
+        Returns:
+            list[dict]: Final re-ranked list of top document chunks.
+        
         """
 
         dense_results = self.get_dense(query, k=top_k)
@@ -89,18 +156,18 @@ class HybridRetrieval:
     
 
 #Testing
-if __name__ == "__main__":
-    retriever = HybridRetrieval()
+#if __name__ == "__main__":
+#    retriever = HybridRetrieval()
 
-    query_txt = "How are translations handled in FastAPI?"
+#    query_txt = "How are translations handled in FastAPI?"
 
-    print("1.Retrieval")
+#    print("1.Retrieval")
 
-    reranked_results = retriever.hybrid_search(query=query_txt)
+#    reranked_results = retriever.hybrid_search(query=query_txt)
 
-    for idx, hit in enumerate(reranked_results, 1):
-            print(f"\n {idx}, score {hit["score"]}, heading {hit["metadata"].get("heading")}")
-            print(f"Text: {hit["text"]}")
+#    for idx, hit in enumerate(reranked_results, 1):
+#            print(f"\n {idx}, score {hit["score"]}, heading {hit["metadata"].get("heading")}")
+#            print(f"Text: {hit["text"]}")
 
     #dense_results = retriever.get_dense(query_txt, k=5)
 
