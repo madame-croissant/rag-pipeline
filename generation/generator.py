@@ -1,3 +1,10 @@
+"""
+RAG response generation module.
+
+Formats retrieved context chunks into indexed blocks and generates grounded 
+answers with inline bracketed citations using the Groq API.
+"""
+
 from retrieval.retrieval import HybridRetrieval
 from groq import Groq
 
@@ -12,14 +19,35 @@ Formatting and Citation Rules:
 """
 
 class Generator:
+    """
+    Manages context block formatting and LLM response generation via Groq.
+
+    Attributes:
+        system_prompt (str): Core instructions enforcing strict grounded citations.
+        model_name (str): Groq LLM model identifier.
+        client (Groq): Initialized Groq API client instance.
+    """
     def __init__(self, key:str, model_name:str = "openai/gpt-oss-20b"):
+        """
+        Initializes the Generator with API credentials and model configuration.
+
+        Args:
+            key (str): Plain-text Groq API key string.
+            model_name (str): LLM model identifier to execute generation requests.
+        """
         self.system_prompt = SYSTEM_PROMPT
         self.model_name = model_name
         self.client = Groq(api_key=key)
 
     def prep_context(self, chunks: list[dict]) -> str:
         """
-        prep blocks to feed the  generator
+        Formats context chunks into numbered blocks with headings for the generator.
+
+        Args:
+            chunks (list[dict]): Retrieved context chunks with metadata and text.
+
+        Returns:
+            str: Single formatted string containing all numbered context blocks.
         """
         formatted_blocks = []
 
@@ -37,7 +65,14 @@ class Generator:
 
     def generate(self, query:str, chunks:list[dict]) -> dict:
         """
-        instructions + context + query -> prompt message
+        Constructs prompt, requests LLM completion, and logs API token usage.
+
+        Args:
+            query (str): The user's prompt or technical question.
+            chunks (list[dict]): Re-ranked candidate context chunks.
+
+        Returns:
+            str: Generated completion text with inline citations.
         """
 
         context_str = self.prep_context(chunks)
@@ -58,29 +93,4 @@ class Generator:
             print(f"[Tokens Used] Prompt: {response.usage.prompt_tokens} | Completion: {response.usage.completion_tokens} | Total: {response.usage.total_tokens}")
 
         return response.choices[0].message.content
-
-
-#Testing
-
-if __name__ == "__main__":
-
-    with open("../keys.txt", "r") as f:
-        key= f.read().strip()
-
-    
-
-    retriever = HybridRetrieval()
-    generator = Generator (key=key)
-
-    query = "How are translations handled in FastAPI?"
-
-    print("1. Retrieving context blocks")
-    reranked_chunks = retriever.hybrid_search(query=query)
-
-    print("2. Generating answer with Groq")
-    answer = generator.generate(query=query, chunks=reranked_chunks)
-
-    print("\n Answer")
-    print(answer)
-
 
