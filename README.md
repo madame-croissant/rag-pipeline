@@ -1,6 +1,6 @@
 # Modular RAG Pipeline
 
-> **Project Status: Under Active Development**
+> **Project Status: Under Development**
 > This repository is currently in active development. Features, API interfaces, and evaluation benchmarks are subject to refinement and updates.
 
 A modular Retrieval-Augmented Generation (RAG) system built in Python. It combines hybrid search, cross-Encoder re-ranking, confidence guardrails, Groq LLM generation, citation verification, and automated evaluation into a clean pipeline.
