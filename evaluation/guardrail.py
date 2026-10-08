@@ -1,19 +1,47 @@
+"""
+Retrieval confidence guardrail module.
+
+Evaluates the relevance score of retrieved context chunks against a defined threshold
+to prevent hallucination by intercepting low-confidence queries before generation.
+"""
+
 from evaluation.scorer import compute_retrieval_score
 
 class RetrievalGuardrail:
     """
-    checking the score of retrived chunks:
-    1. if best chunk is low -> stopping
-    2. if some bad chunks -> taking and proceeding to generation
+    Evaluates chunk relevance scores to intercept low-confidence retrieval attempts.
+
+    1. If the top retrieval score (best chunk) falls below threshold -> blocks generation and returns fallback response.
+    2. If retrieval score passes threshold (some bad chunks) -> permits generation with retrieved context.
+
+    Attributes:
+        threshold (float): Minimum acceptable retrieval confidence score (default 0.35).
     """
 
     def __init__(self, threshold: float = 0.35):
+        """
+        Initializes guardrail with a minimum retrieval confidence threshold.
+
+        Args:
+            threshold (float): Cutoff score below which queries are intercepted.
+        """
         self.threshold = threshold
 
 
     def check(self, reranked_chunks: list[dict], query: str = "") -> dict:
         """
-        if retrival score is too low -> stopping
+        Checks retrieved chunks against the threshold score.
+
+        If retrieval score is too low, extracts top candidate headings as alternative 
+        suggestions and builds a fallback response.
+
+        Args:
+            reranked_chunks (list[dict]): Re-ranked candidate chunks with scores and metadata.
+            query (str): The original search query string.
+
+        Returns:
+            dict: Guardrail check result containing 'passed' status, 'confidence' score, 
+                  and optional 'fallback_response'.
         """
 
         retrieval_score = compute_retrieval_score(reranked_chunks)

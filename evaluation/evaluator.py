@@ -1,21 +1,57 @@
+"""
+Evaluation module.
+
+Uses an LLM judge via Groq to evaluate generated RAG candidate responses 
+against ground-truth golden answers on a 1–5 scale, handling out-of-domain 
+guardrail interceptions.
+"""
+
+
 import re
 import json
 from groq import Groq
 
 
 class Evaluation:
-    def __init__(self, key_path: str = "../keys.txt", model_name: str = "openai/gpt-oss-20b"):
+    """
+    Manages automated evaluation of RAG responses against benchmark test cases.
+
+    Attributes:
+        api_key (str): Groq API key loaded from file.
+        groq_client (Groq): Initialized Groq API client instance.
+        model_name (str): LLM judge model identifier.
+    """
+    
+    def __init__(self, key_path: str = "../keys.txt", model_name: str = "openai/gpt-oss-20b") -> None:
+        """
+        Initializes the Groq client with an API key read from disk.
+
+        Args:
+            key_path (str): File system path to the plain-text API key file.
+            model_name (str): Identifier of the LLM model to use as evaluator.
+        """
         
-        with open("../keys.txt", "r") as f:
+        with open(key_path, "r") as f:
             api_key = f.read().strip()
         
         self.api_key = api_key
         self.groq_client = Groq(api_key=api_key)
         self.model_name = model_name
 
-    def judge_accuracy(self, query: str, golden_answer:str, candidate_answer: str) -> dict:
+    def judge_accuracy(self, query: str, golden_answer: str, candidate_answer: str) -> dict:
         """
-        LLm compares cand answer to gold stand (1-5 score)
+        Evaluates candidate response factual accuracy against a golden ground-truth answer.
+
+        Prompts the judge LLM to assign a score from 1 to 5 along with a brief explanation.
+
+        Args:
+            query (str): The original user query.
+            golden_answer (str): Ground-truth expected answer.
+            candidate_answer (str): Response text produced by the RAG pipeline.
+
+        Returns:
+            dict[str, int | str]: Dictionary containing 'score' (1-5) and 'reason' string.
+
         """
 
         prompt = f"""You are an objective AI evaluator.
@@ -57,7 +93,18 @@ class Evaluation:
         except Exception as e:
             return {"score": 1, "reason": f"Evaluation error: {str(e)}"}
         
-    def execute_evaluation(self, dataset_path = "eval_dataset.json"):
+    def execute_evaluation(self, dataset_path: str = "eval_dataset.json") -> list[dict]:
+        """
+        Executes full evaluation suite over a JSON dataset of query/golden-answer test cases.
+
+        Evaluates answer accuracy and verifies guardrail interception for out-of-domain queries.
+
+        Args:
+            dataset_path (str): File path to evaluation test dataset JSON.
+
+        Returns:
+            list[dict]: Detailed benchmark results containing candidate answers, scores, and reasons.
+        """
 
         from main import run_query
         
@@ -72,7 +119,7 @@ class Evaluation:
             
             pipeline_output = run_query(query, key=self.api_key)
 
-            ###checking the guardrail:
+            #Checking the guardrail:
 
             if isinstance(pipeline_output, dict) and pipeline_output.get("intercepted"):
                 fallback_msg = (
@@ -80,7 +127,7 @@ class Evaluation:
                     " answer your request appropriately."
                 )
                 
-                #extract the "message" from the nested "answer" dict:
+                #Extract the "message" from the nested "answer" dict:
                 answer = pipeline_output.get("answer", {})
                 candidate_answer = answer.get("message", fallback_msg)
                 
@@ -96,8 +143,7 @@ class Evaluation:
                     candidate_answer = pipeline_output.get("answer", "")
                 else:
                     candidate_answer = str(pipeline_output)
-
-            #####
+                    
 
                 eval_res = self.judge_accuracy(query=query, golden_answer=golden_answer, candidate_answer=candidate_answer)
 
